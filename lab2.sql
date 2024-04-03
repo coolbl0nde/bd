@@ -17,7 +17,7 @@ CREATE TABLE GROUPS (
 
 
 
-
+--Task2
 create or replace trigger insert_on_student
 before insert on students
 for each row
@@ -30,13 +30,41 @@ begin
     end if;
 end;
 
+create or replace trigger check_group_id_on_student
+before insert or update on students
+for each row
+follows insert_on_student
+declare 
+    group_count number;
+begin
+        select count(*) into group_count from groups where id =  :NEW.group_id;
+        
+        if (group_count = 0) then
+            raise_application_error(-20001, 'There`s no such group.');
+        end if;
+end;
+
+create or replace trigger insert_on_group
+before insert on groups
+for each row
+declare
+    group_count number;
+begin
+    select count(*) into group_count from groups where id = :NEW.id or name = :NEW.name;
+    
+    if (group_count != 0) then
+        raise_application_error(-20001, 'Id and name should be unique.');
+    end if;
+end;
+
+drop trigger auto_increment_on_students;
 
 CREATE SEQUENCE stud_seq START WITH 1;
 
 create or replace trigger auto_increment_on_students
 before insert on students
 for each row
-follows insert_on_student//check_group_id_on_student
+follows insert_on_student
 begin
     if (:NEW.id is null) then
         select stud_seq.nextval into :NEW.id from dual;
@@ -56,7 +84,7 @@ begin
 end;
 
 
-
+--Task3
 
 create or replace trigger cascade_delete_on_groups
 after delete on groups
@@ -70,7 +98,7 @@ begin
 end;
 
 
-
+--Task4
 
 ALTER SESSION SET NLS_DATE_FORMAT = 'DD-MON-YYYY HH24:MI:SS';
 
@@ -91,10 +119,10 @@ for each row
 begin
     if inserting then
         insert into logging (log_time, type, stud_id, name, group_id)
-            values ((SELECT CURRENT_TIMESTAMP FROm DUAL), 'INSERT', :NEW.id, :NEW.name, :NEW.group_id);
+            values ((SELECT CURRENT_TIMESTAMP FROM DUAL), 'INSERT', :NEW.id, :NEW.name, :NEW.group_id);
     elsif updating then
         insert into logging (log_time, type, stud_id, name, group_id)
-            values ((SELECT CURRENT_TIMESTAMP FROm DUAL), 'UPDATE', :NEW.id, :NEW.name, :NEW.group_id);
+            values ((SELECT CURRENT_TIMESTAMP FROM DUAL), 'UPDATE', :NEW.id, :NEW.name, :NEW.group_id);
     end if;
 end;
 
@@ -108,15 +136,92 @@ begin
 end;
 
 
+--Task5
+
+create or replace procedure backup_on_students(backup_date IN timestamp) 
+as
+    tmp_g_id number;
+    cur_date date := SYSTIMESTAMP;
+begin
+    delete from students;
+    delete from logging where log_time >= cur_date;
+
+    for tmp_log in (select * from logging where log_time <= backup_date order by log_time asc)
+    loop
+        if tmp_log.type = 'INSERT'
+        then
+            insert into students (id, name, group_id) values(tmp_log.stud_id, tmp_log.name, tmp_log.group_id);
+        end if;
+
+        if tmp_log.type = 'UPDATE'
+        then
+            update students set name = tmp_log.name, group_id = tmp_log.group_id where id = tmp_log.stud_id;
+        end if;
+        if tmp_log.type = 'DELETE'
+        then
+            delete from students where id = tmp_log.stud_id;
+        end if;
+
+
+    end loop;
+
+    delete from logging where log_time >= cur_date;
+end;
+
+
+--Task6
+
+create or replace trigger change_c_val_on_groups
+before insert or update or delete on students
+for each row
+declare
+    old_g_id number;
+    old_c_v number;
+    new_g_id number;
+    new_c_v number;
+    c_v number;
+    g_id number;
+    count_g number;
+begin
+    if deleting then
+        select count(*) into count_g from groups where id=:OLD.group_id;
+        if (count_g > 0) then
+            select id, c_val into g_id, c_v from groups where id = :OLD.group_id;
+            c_v := c_v - 1;
+            update groups set c_val=c_v where id=g_id;
+        end if;
+    elsif updating then
+        select id, c_val into old_g_id, old_c_v from groups where id = :OLD.group_id;
+        select id, c_val into new_g_id, new_c_v from groups where id = :NEW.group_id;
+        old_c_v := old_c_v - 1;
+        new_c_v := new_c_v + 1;
+        update groups set c_val=old_c_v where id=old_g_id;
+        update groups set c_val=new_c_v where id=new_g_id;
+    elsif inserting then
+        select id, c_val into g_id, c_v from groups where id = :NEW.group_id;
+        c_v := c_v + 1;
+        update groups set c_val=c_v where id=g_id;
+    end if;
+    
+    exception
+    when others then
+      dbms_output.put_line('Error in tr_group_c_val_students_delete: ' || sqlerrm);
+end;
+
+
 
 
 SELECT * FROM STUDENTS;
+SELECT * FROM GROUPS;
 
 DECLARE
 BEGIN
+    delete from students;
+
     insert into students (id, name, group_id) values(1, 's 1', 1);
     insert into students (id, name, group_id) values(2, 's 2', 2);
-    insert into students (id, name, group_id) values(3, 's 3', 2);
+    
+    insert into groups (id, name, c_val) values(1, 'g 1', 0);
+    insert into groups (id, name, c_val) values(2, 'g 2', 0);
+    insert into students (name, group_id) values('s 3', 2);
 END;
-
-SELECT * FROM STUDENTS;
