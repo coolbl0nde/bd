@@ -1,5 +1,3 @@
-DROP TABLE STUDENTS;
-DROP TABLE GROUPS;
 
 CREATE TABLE STUDENTS (
     id NUMBER(10),
@@ -132,7 +130,7 @@ after delete on students
 for each row
 begin
     insert into logging (log_time, type, stud_id, name, group_id)
-            values ((SELECT CURRENT_TIMESTAMP FROm DUAL), 'DELETE', :OLD.id, :OLD.name, :OLD.group_id);
+            values ((SELECT CURRENT_TIMESTAMP FROM DUAL), 'DELETE', :OLD.id, :OLD.name, :OLD.group_id);
 end;
 
 
@@ -213,15 +211,21 @@ end;
 
 SELECT * FROM STUDENTS;
 SELECT * FROM GROUPS;
+SELECT * FROM LOGGING;
 
 DECLARE
 BEGIN
     delete from students;
+    delete from logging;
+    delete from students where id = 1;
 
     insert into students (id, name, group_id) values(1, 's 1', 1);
-    insert into students (id, name, group_id) values(2, 's 2', 2);
+    insert into students (id, name, group_id) values(4, 's 2', 1);
     
     insert into groups (id, name, c_val) values(1, 'g 1', 0);
     insert into groups (id, name, c_val) values(2, 'g 2', 0);
-    insert into students (name, group_id) values('s 3', 2);
+    
+    update students set group_id = 1 where id=3;
 END;
+
+call backup_on_students(to_timestamp('03-¿œ–-2024 17:10:31', 'DD-MON-YYYY HH24:MI:SS'));
