@@ -13,6 +13,10 @@ CREATE TABLE c##dev.departments (
     CONSTRAINT pk_department_id PRIMARY KEY (department_id)
 );
 
+CREATE TABLE c##dev.abc (
+    abc_id number not null,
+    CONSTRAINT pk_abc_id PRIMARY KEY (abc_id)
+);
 
 CREATE TABLE c##prod.employees (
     employee_id number not null,
@@ -27,3 +31,11 @@ CREATE TABLE c##prod.departments (
     location varchar2(100) not null,
     CONSTRAINT pk_department_id PRIMARY KEY (department_id)
 );
+
+CREATE TABLE c##prod.abc (
+    abc_id number not null,
+    CONSTRAINT pk_abc_id PRIMARY KEY (abc_id)
+);
+
+drop table c##prod.abc;
+
